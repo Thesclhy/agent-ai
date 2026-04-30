@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer"; // Import multer
 import chat from "./chat.js";
+import chatMCP from "./chat-mcp.js";
 
 dotenv.config();
 
@@ -31,10 +32,12 @@ app.post("/upload", upload.single("file"), (req, res) => {
 });
 
 app.get("/chat", async (req, res) => {
-  const resp = await chat(filePath, req.query.question); // Use MCP-enhanced chat
+  const ragResp = await chat(filePath, req.query.question);
+  const mcpResp = await chatMCP(req.query.question);
+
   res.send({
-    ragAnswer: resp.text,
-    mcpAnswer: "N/A",
+    ragAnswer: ragResp.text,
+    mcpAnswer: mcpResp.text,
   });
 });
 
