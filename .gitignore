@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+server/uploads/*
+!server/uploads/.gitkeep
+
 **/.env
 .codex
 PROJECT_SHOWCASE.md
