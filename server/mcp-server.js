@@ -3,7 +3,27 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { getJson } from "serpapi";
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY;
+const SERPAPI_KEY = process.env.SERPAPI_KEY?.trim();
+
+const formatSearchError = (error) => {
+  if (!error) {
+    return "Unknown web search error.";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error.message) {
+    return error.message;
+  }
+
+  if (error.error) {
+    return error.error;
+  }
+
+  return JSON.stringify(error);
+};
 
 // Create MCP server instance
 const server = new McpServer({
@@ -27,12 +47,22 @@ server.registerTool(
   },
   async ({ query, num = 10 }) => {
     try {
+      if (!SERPAPI_KEY) {
+        throw new Error(
+          "SERPAPI_KEY is missing. Set it before starting the backend."
+        );
+      }
+
       const results = await getJson({
         engine: "google",
         q: query,
         num: num,
         api_key: SERPAPI_KEY,
       });
+
+      if (results?.error) {
+        throw new Error(`SerpAPI returned an error: ${results.error}`);
+      }
 
       // Return all results as plain text
       const fullResults = JSON.stringify(results);
@@ -46,11 +76,17 @@ server.registerTool(
         ],
       };
     } catch (error) {
+      const errorMessage = formatSearchError(error);
+      console.error("[MCP] Web search failed:", {
+        query,
+        error: errorMessage,
+      });
+
       return {
         content: [
           {
             type: "text",
-            text: `Error performing web search: ${error.message}`,
+            text: `Error performing web search: ${errorMessage}`,
           },
         ],
       };

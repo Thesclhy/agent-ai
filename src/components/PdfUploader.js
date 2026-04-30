@@ -1,7 +1,7 @@
 import React from "react";
 import axios from "axios"; // Import axios for HTTP requests
 import { InboxOutlined } from "@ant-design/icons";
-import { message, Upload } from "antd";
+import { Button, message, Upload } from "antd";
 
 const { Dragger } = Upload;
 
@@ -23,48 +23,44 @@ const uploadToBackend = async (file) => {
   }
 };
 
-const attributes = {
-  name: "file",
-  multiple: true,
-  customRequest: async ({ file, onSuccess, onError }) => {
-    const response = await uploadToBackend(file);
-    if (response && response.status === 200) {
-      // Handle success
-      onSuccess(response.data);
-    } else {
-      // Handle error
-      onError(new Error("Upload failed"));
-    }
-  },
-  onChange(info) {
-    const { status } = info.file;
-    if (status !== "uploading") {
-      console.log(info.file, info.fileList);
-    }
-    if (status === "done") {
-      message.success(`${info.file.name} file uploaded successfully.`);
-    } else if (status === "error") {
-      message.error(`${info.file.name} file upload failed.`);
-    }
-  },
-  onDrop(e) {
-    console.log("Dropped files", e.dataTransfer.files);
-  },
-};
+const PdfUploader = ({ onUploadSuccess }) => {
+  const attributes = {
+    name: "file",
+    multiple: true,
+    showUploadList: false,
+    customRequest: async ({ file, onSuccess, onError }) => {
+      const response = await uploadToBackend(file);
+      if (response && response.status === 200) {
+        onSuccess(response.data);
+        if (onUploadSuccess) {
+          onUploadSuccess(file.name);
+        }
+      } else {
+        onError(new Error("Upload failed"));
+      }
+    },
+    onChange(info) {
+      const { status } = info.file;
+      if (status === "done") {
+        message.success(`${info.file.name} file uploaded successfully.`);
+      } else if (status === "error") {
+        message.error(`${info.file.name} file upload failed.`);
+      }
+    },
+  };
 
-const PdfUploader = () => {
   return (
-    <Dragger {...attributes}>
-      <p className="ant-upload-drag-icon">
+    <Dragger {...attributes} className="sidebar-uploader">
+      <div className="sidebar-uploader__icon">
         <InboxOutlined />
-      </p>
-      <p className="ant-upload-text">
-        Click or drag file to this area to upload
-      </p>
-      <p className="ant-upload-hint">
-        Support for a single or bulk upload. Strictly prohibited from uploading
-        company data or other banned files.
-      </p>
+      </div>
+      <div className="sidebar-uploader__body">
+        <p className="sidebar-uploader__title">Upload PDF</p>
+        <p className="sidebar-uploader__hint">
+          Drag a file here or click to choose a document.
+        </p>
+        <Button className="sidebar-uploader__button">Choose File</Button>
+      </div>
     </Dragger>
   );
 };

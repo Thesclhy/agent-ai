@@ -28,16 +28,47 @@ let filePath;
 app.post("/upload", upload.single("file"), (req, res) => {
   // Use multer to handle file upload
   filePath = req.file.path; // The path where the file is temporarily saved
+  console.log(`[UPLOAD] Received file: ${filePath}`);
   res.send(filePath + " upload successfully.");
 });
 
 app.get("/chat", async (req, res) => {
-  const ragResp = await chat(filePath, req.query.question);
-  const mcpResp = await chatMCP(req.query.question);
+  let ragResp = { text: "" };
+  let ragError = null;
+  let mcpResp = { text: "" };
+  let mcpError = null;
+
+  try {
+    ragResp = await chat(filePath, req.query.question);
+  } catch (error) {
+    ragError =
+      error?.message ||
+      "Failed to read the uploaded PDF. It may be corrupted, scanned, or incompatible.";
+    console.error("[RAG] Failed to answer from PDF:", {
+      filePath,
+      question: req.query.question,
+      error: error?.message || String(error),
+      details: error?.details || null,
+    });
+  }
+
+  try {
+    mcpResp = await chatMCP(req.query.question);
+  } catch (error) {
+    mcpError =
+      error?.message ||
+      "Web search failed while answering this question.";
+    console.error("[MCP] Failed to answer from web search:", {
+      question: req.query.question,
+      error: error?.message || String(error),
+    });
+  }
 
   res.send({
-    ragAnswer: ragResp.text,
-    mcpAnswer: mcpResp.text,
+    ragAnswer: ragResp.text || ragError,
+    ragError,
+    mcpAnswer: mcpResp.text || mcpError,
+    mcpError,
   });
 });
 

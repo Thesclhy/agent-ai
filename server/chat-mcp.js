@@ -82,6 +82,10 @@ const chatMCP = async (query) => {
       searchResults = toolResult.content[0].text;
     }
 
+    if (searchResults.startsWith("Error performing web search:")) {
+      return { text: searchResults, error: searchResults };
+    }
+
     // Use the LLM to answer the question based on search results
     const model = new ChatOpenAI({
       model: "gpt-5",

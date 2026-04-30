@@ -1,36 +1,31 @@
-import React, { useState, useEffect } from "react"; // Import useState
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button, Input } from "antd";
-import { AudioOutlined } from "@ant-design/icons";
+import {
+  AudioOutlined,
+  MessageOutlined,
+  SendOutlined,
+} from "@ant-design/icons";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import Speech from "speak-tts";
 
-const { Search } = Input;
+const { TextArea } = Input;
 
 const DOMAIN = "http://localhost:5001";
 
-const searchContainer = {
-  display: "flex",
-  justifyContent: "center",
-};
-
 const ChatComponent = (props) => {
   const { handleResp, isLoading, setIsLoading } = props;
-  // Define a state variable to keep track of the search value
   const [searchValue, setSearchValue] = useState("");
   const [isChatModeOn, setIsChatModeOn] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speech, setSpeech] = useState();
 
-  // speech recognation
   const {
     transcript,
     listening,
     resetTranscript,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable,
   } = useSpeechRecognition();
 
   useEffect(() => {
@@ -45,7 +40,6 @@ const ChatComponent = (props) => {
         splitSentences: false,
       })
       .then((data) => {
-        // The "data" object contains the list of available voices and the voice synthesis params
         console.log("Speech is ready, voices are available", data);
         setSpeech(initialized_speech);
       })
@@ -56,16 +50,20 @@ const ChatComponent = (props) => {
 
   useEffect(() => {
     if (!listening && Boolean(transcript)) {
-      (async () => await onSearch(transcript))();
+      setSearchValue(transcript);
       setIsRecording(false);
     }
   }, [listening, transcript]);
 
   const talk = (what2say) => {
+    if (!speech) {
+      return;
+    }
+
     speech
       .speak({
         text: what2say,
-        queue: false, // current speech will be interrupted,
+        queue: false,
         listeners: {
           onstart: () => {
             console.log("Start utterance");
@@ -87,7 +85,6 @@ const ChatComponent = (props) => {
         },
       })
       .then(() => {
-        // if everyting went well, start listening again
         console.log("Success !");
         userStartConvo();
       })
@@ -97,7 +94,7 @@ const ChatComponent = (props) => {
   };
 
   const userStartConvo = () => {
-    SpeechRecognition.startListening();
+    SpeechRecognition.startListening({ language: "en-US" });
     setIsRecording(true);
     resetTranscript();
   };
@@ -118,12 +115,15 @@ const ChatComponent = (props) => {
       resetTranscript();
     } else {
       setIsRecording(true);
-      SpeechRecognition.startListening();
+      SpeechRecognition.startListening({ language: "en-US" });
     }
   };
 
   const onSearch = async (question) => {
-    // Clear the search input
+    if (!question?.trim()) {
+      return;
+    }
+
     setSearchValue("");
     setIsLoading(true);
 
@@ -145,45 +145,65 @@ const ChatComponent = (props) => {
     }
   };
 
+  const handleSubmit = async () => {
+    await onSearch(searchValue);
+  };
+
+  const handleKeyDown = async (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      await handleSubmit();
+    }
+  };
+
   const handleChange = (e) => {
-    // Update searchValue state when the user types in the input box
     setSearchValue(e.target.value);
   };
 
   return (
-    <div style={searchContainer}>
-      {!isChatModeOn && (
-        <Search
-          placeholder="input search text"
-          enterButton="Ask"
-          size="large"
-          onSearch={onSearch}
-          loading={isLoading}
-          value={searchValue} // Control the value
-          onChange={handleChange} // Update the value when changed
-        />
-      )}
-      <Button
-        type="primary"
-        size="large"
-        danger={isChatModeOn}
-        onClick={chatModeClickHandler}
-        style={{ marginLeft: "5px" }}
-      >
-        Chat Mode: {isChatModeOn ? "On" : "Off"}
-      </Button>
-      {isChatModeOn && (
-        <Button
-          type="primary"
-          icon={<AudioOutlined />}
-          size="large"
-          danger={isRecording}
-          onClick={recordingClickHandler}
-          style={{ marginLeft: "5px" }}
-        >
-          {isRecording ? "Recording..." : "Click to record"}
-        </Button>
-      )}
+    <div className="composer">
+      <div className="composer__surface">
+        <div className="composer__toolbar">
+          <Button
+            type={isChatModeOn ? "primary" : "default"}
+            icon={<MessageOutlined />}
+            onClick={chatModeClickHandler}
+            className="composer__mode-button"
+          >
+            Voice Chat {isChatModeOn ? "On" : "Off"}
+          </Button>
+
+          {isChatModeOn && (
+            <Button
+              type={isRecording ? "primary" : "default"}
+              icon={<AudioOutlined />}
+              onClick={recordingClickHandler}
+              className="composer__mode-button"
+            >
+              {isRecording ? "Recording..." : "Record"}
+            </Button>
+          )}
+        </div>
+
+        <div className="composer__input-row">
+          <TextArea
+            placeholder="Message Agent AI about your document..."
+            autoSize={{ minRows: 1, maxRows: 6 }}
+            value={searchValue}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            className="composer__textarea"
+          />
+          <Button
+            type="primary"
+            shape="circle"
+            icon={<SendOutlined />}
+            loading={isLoading}
+            onClick={handleSubmit}
+            className="composer__send"
+          />
+        </div>
+      </div>
     </div>
   );
 };
