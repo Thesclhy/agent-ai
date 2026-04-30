@@ -2,6 +2,7 @@
 
 **/.env
 .codex
+PROJECT_SHOWCASE.md
 
 # dependencies
 /node_modules
