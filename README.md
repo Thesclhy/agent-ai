@@ -1,70 +1,197 @@
-# Getting Started with Create React App
+# Agent AI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Agent AI is a full-stack AI assistant prototype that combines:
 
-## Available Scripts
+- PDF-based RAG question answering
+- Web-search-assisted answers through MCP
+- A ChatGPT-like chat interface
+- Optional voice input and speech playback
 
-In the project directory, you can run:
+Users can upload a PDF, ask questions about it, and receive two parallel answers:
 
-### `npm start`
+- `RAG Answer`: grounded in the uploaded document
+- `MCP Answer`: based on live web search results
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+This project demonstrates my ability to build and improve an AI product end to end, including frontend experience, backend API design, retrieval pipelines, tool integration, and debugging of real-world document parsing issues.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Features
 
-### `npm test`
+- Upload a PDF and use it as the active knowledge source
+- Ask free-form questions in a chat interface
+- Get document-grounded answers through a RAG pipeline
+- Get external context through MCP-based web search
+- Use voice mode for English speech input
+- See clear backend error messages when PDF parsing or web search fails
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Tech Stack
 
-### `npm run build`
+### Frontend
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- React
+- Ant Design
+- Axios
+- react-speech-recognition
+- speak-tts
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Backend
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Node.js
+- Express
+- Multer
+- LangChain
+- OpenAI Embeddings / ChatOpenAI
+- MemoryVectorStore
+- MCP SDK
+- SerpAPI
+- Ghostscript fallback for PDF text extraction
 
-### `npm run eject`
+## How It Works
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 1. PDF Upload
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The frontend uploads a PDF to:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```http
+POST /upload
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+The backend stores the uploaded file in `server/uploads/` and keeps it as the current document context.
 
-## Learn More
+### 2. Chat Request
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+When the user asks a question, the frontend calls:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```http
+GET /chat?question=...
+```
 
-### Code Splitting
+The backend then runs two answer paths:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `chat.js`: PDF RAG pipeline
+- `chat-mcp.js`: MCP web search pipeline
 
-### Analyzing the Bundle Size
+### 3. RAG Path
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+The RAG pipeline:
 
-### Making a Progressive Web App
+1. Loads PDF text
+2. Splits the document into chunks
+3. Builds embeddings
+4. Stores them in an in-memory vector store
+5. Retrieves relevant chunks for the user’s question
+6. Uses `ChatOpenAI` to generate a concise answer
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### 4. MCP Web Search Path
 
-### Advanced Configuration
+The MCP path:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+1. Starts a local MCP server over stdio
+2. Registers a `search_web` tool
+3. Calls SerpAPI for search results
+4. Passes results to the model for summarization
 
-### Deployment
+## Engineering Improvements Implemented
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+This project includes several practical improvements beyond a basic demo.
 
-### `npm run build` fails to minify
+### UI / UX Improvements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Refactored the interface into a ChatGPT-like layout
+- Added a fixed left sidebar and bottom composer
+- Moved PDF upload into the sidebar
+- Improved response presentation using expandable answer sections
+- Changed voice mode so speech fills the text box before sending
+- Restricted voice recognition to English
+
+### PDF Parsing Robustness
+
+Some PDFs open successfully but fail to yield readable text with the default parser. To make the system more reliable:
+
+- Added logs for file path, extracted page count, and total extracted text length
+- Added clear error handling for parser failures
+- Detects empty extracted text instead of silently continuing
+- Added Ghostscript fallback extraction for PDFs that LangChain/PDFLoader cannot read properly
+
+### Web Search Reliability
+
+- Improved SerpAPI error handling
+- Trimmed `SERPAPI_KEY` to avoid trailing-space issues
+- Properly surfaces API errors instead of returning `undefined`
+- Prevents the model from “summarizing” an error string as if it were a search result
+
+## Project Structure
+
+```text
+agentai/
+├── src/
+│   ├── App.js
+│   └── components/
+│       ├── ChatComponent.js
+│       ├── PdfUploader.js
+│       └── RenderQA.js
+├── server/
+│   ├── server.js
+│   ├── chat.js
+│   ├── chat-mcp.js
+│   └── mcp-server.js
+└── README.md
+```
+
+## Run Locally
+
+From the project root:
+
+```bash
+npm install
+cd server && npm install
+cd ..
+npm run dev
+```
+
+Frontend:
+
+- `http://localhost:3000`
+
+Backend:
+
+- `http://localhost:5001`
+
+## Environment Variables
+
+Root `.env`:
+
+```bash
+REACT_APP_DOMAIN=http://localhost:5001
+```
+
+Backend environment:
+
+```bash
+OPENAI_API_KEY=your_openai_key
+SERPAPI_KEY=your_serpapi_key
+```
+
+## Current Limitations
+
+- Vector storage is in-memory only
+- Uploaded document state is process-local, not user-isolated
+- No database or authentication
+- Search summarization still uses raw search response text and can be further structured
+- OCR support is partial and currently relies on Ghostscript fallback
+
+## What This Project Demonstrates
+
+This project shows that I can:
+
+- Build a React + Node.js full-stack application
+- Integrate LLMs into a working product flow
+- Implement a RAG pipeline
+- Work with tool-based AI architecture through MCP
+- Debug real parsing and third-party API issues
+- Improve both system reliability and user experience
+
+## Additional Project Writeup
+
+For a more detailed project showcase oriented toward interviews, portfolio reviews, or technical presentations, see:
+
+- [PROJECT_SHOWCASE.md](./PROJECT_SHOWCASE.md)
